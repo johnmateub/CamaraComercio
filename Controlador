@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace CamaraComercio
+{
+    public class Controlador
+    {
+        /// <summary>
+        /// Instancia estatica para acceso de la clase Controlador
+        /// </summary>
+        public static readonly Controlador Instance = new Controlador();
+
+        /// <summary>
+        /// registrar llave Publica
+        /// </summary>
+        /// <returns>Obtener Id de llave</returns>
+        public string register(string publicKey)
+        {
+            return Modelo.Instance.register(publicKey);
+        }
+
+        /// <summary>
+        /// Validar si texto fue encriptado con id de llave por parámetro
+        /// </summary>
+        /// <returns>200 si el texto fue encriptado con la llave relacionada al id</returns>
+        /// <returns>400 si no</returns>
+        public string validate(string id, string clearText, string cryptedText)
+        {
+            return Modelo.Instance.validate( id, clearText, cryptedText);
+        }
+    }
+}
