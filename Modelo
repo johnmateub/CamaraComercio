@@ -1,0 +1,189 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+using System.Net.Security;
+using System.Text;
+using System.IO;
+using System.Security.Cryptography;
+
+
+namespace CamaraComercio
+{
+    public class Modelo
+    {
+        /// <summary>
+        /// Instancia estatica para acceso de la clase Modelo
+        /// </summary>
+        public static readonly Modelo Instance = new Modelo();
+
+        /// <summary>
+        /// registrar llave publica
+        /// </summary>
+        /// <returns>Id de llave</returns>
+        public string register(string publicKey)
+        {
+            return generateKeys();
+        }
+
+        /// <summary>
+        /// Validar si texto fue encriptado con id de llave por parámetro
+        /// </summary>
+        /// <returns>200 si el texto fue encriptado con la llave relacionada al id</returns>
+        /// <returns>400 si no</returns>
+        public string validate(string id, string clearText, string cryptedText)
+        {
+            return Decrypt(id, clearText, cryptedText);
+        }
+
+        // Generate a new key pair
+        //Referencia : http://blogs.msdn.com/b/alejacma/archive/2008/10/23/how-to-generate-key-pairs-encrypt-and-decrypt-data-with-net-c.aspx
+        static string generateKeys()
+        {
+            // Variables
+            CspParameters cspParams = null;
+            RSACryptoServiceProvider rsaProvider = null;
+            StreamWriter publicKeyFile = null;
+            StreamWriter privateKeyFile = null;
+            string publicKey = "";
+            string privateKey = "";
+
+            try
+            {
+                //Obtener la ruta actual para guardar llaves publica y privada en dicha ruta
+                string ruta = getCurrentPath();
+                // Create a new key pair on target CSP
+                cspParams = new CspParameters();
+                cspParams.ProviderType = 1; // PROV_RSA_FULL 
+                //cspParams.ProviderName; // CSP name
+                cspParams.Flags = CspProviderFlags.UseArchivableKey;
+                cspParams.KeyNumber = (int)KeyNumber.Exchange;
+                rsaProvider = new RSACryptoServiceProvider(cspParams);
+
+                // Export public key
+                publicKey = rsaProvider.ToXmlString(false);
+                int hashCode = rsaProvider.GetHashCode();
+
+
+                // Write public key to file
+                publicKeyFile = File.CreateText(ruta+@"\\publicKey"+hashCode.ToString()+".txt");
+                publicKeyFile.Write(publicKey);
+
+                // Export private/public key pair 
+                privateKey = rsaProvider.ToXmlString(true);
+
+                // Write private/public key pair to file
+                privateKeyFile = File.CreateText(ruta+@"\\privateKey" + hashCode.ToString() + ".txt");
+                privateKeyFile.Write(privateKey);
+
+                //Retorna Id de llaves
+                return hashCode.ToString();
+            }
+            catch (Exception ex)
+            {
+                // Any errors? Show them
+                Console.WriteLine("Exception generating a new key pair! More info:");
+                Console.WriteLine(ex.Message);
+                return "ERROR REGISTER";
+            }
+            finally
+            {
+                // Do some clean up if needed
+                if (publicKeyFile != null)
+                {
+                    publicKeyFile.Close();
+                }
+                if (privateKeyFile != null)
+                {
+                    privateKeyFile.Close();
+                }
+            }
+
+        } // Keys
+
+        // Decrypt a text
+        //Referencia : http://blogs.msdn.com/b/alejacma/archive/2008/10/23/how-to-generate-key-pairs-encrypt-and-decrypt-data-with-net-c.aspx
+        static string Decrypt(string keyId, string clearText, string cryptedText)
+        {
+            // Variables
+            string responseCode = "";
+            CspParameters cspParams = null;
+            RSACryptoServiceProvider rsaProvider = null;
+            StreamReader privateKeyFile = null;
+            string privateKeyText = "";
+            byte[] encryptedBytes = null;
+            byte[] plainBytes = null;
+
+            try
+            {
+                //Obtener la ruta actual
+                string ruta = getCurrentPath();
+                
+                //Verifica si el id corresponde a una llave generada anteriormente
+                ruta = ruta + @"\\privateKey" + keyId + ".txt";
+                if (!File.Exists(ruta))
+                { 
+                    responseCode = "400";
+                }else
+                {
+                    //Desencripta texto con llave privada
+                    // Select target CSP
+                    cspParams = new CspParameters();
+                    cspParams.ProviderType = 1; // PROV_RSA_FULL 
+                    //cspParams.ProviderName; // CSP name
+                    rsaProvider = new RSACryptoServiceProvider(cspParams);
+
+                    // Read private/public key pair from file
+                    privateKeyFile = File.OpenText(ruta);
+                    privateKeyText = privateKeyFile.ReadToEnd();
+
+                    // Import private/public key pair
+                    rsaProvider.FromXmlString(privateKeyText);
+
+                    // Read encrypted text
+                    encryptedBytes = Encoding.UTF8.GetBytes(cryptedText);
+                    
+                    // Decrypt text
+                    plainBytes = rsaProvider.Decrypt(encryptedBytes, false);
+
+                    // Valida si el texto desencriptado corresponde al texto en claro enviado
+                    if (Encoding.UTF8.GetString(plainBytes).CompareTo(clearText) == 0)
+                        responseCode = "200";
+                    else
+                        responseCode = "400";
+                }
+                return responseCode;
+
+            }
+            catch (Exception ex)
+            {
+                // Any errors? Show them
+                Console.WriteLine("Exception decrypting file! More info:");
+                Console.WriteLine(ex.Message);
+                return "400";
+            }
+            finally
+            {
+                // Do some clean up if needed
+                if (privateKeyFile != null)
+                {
+                    privateKeyFile.Close();
+                }
+            }
+
+        } // Decrypt
+
+        //Obtiene la ruta actual de ejecución de la aplicación
+        private static string getCurrentPath()
+        {
+            string ruta = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase);
+            if (ruta.EndsWith("\\bin\\Debug"))
+            {
+                ruta = ruta.Replace("\\bin\\Debug", "");
+                ruta = ruta.Replace("file:\\", "");
+            }
+            return ruta;
+        }
+    }
+}
