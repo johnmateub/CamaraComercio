@@ -1,0 +1,88 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Security.Cryptography;
+using System.IO;
+
+namespace Cliente
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Digite la Ruta de la llave publica");
+            string ruta = Console.ReadLine();
+            Console.WriteLine("Texto a Cifrar");
+            string texto = Console.ReadLine();
+            Encrypt(ruta, texto);
+            Console.WriteLine("Presione una tecla para terminar...");
+            Console.ReadLine();
+
+        }
+
+        
+        // Encrypt a file
+        static void Encrypt(string publicKeyFileName, string clearText)
+        {
+            // Variables
+            CspParameters cspParams = null;
+            RSACryptoServiceProvider rsaProvider = null;
+            StreamReader publicKeyFile = null;
+            StreamWriter tempFile = null;
+            string publicKeyText = "";
+            byte[] plainBytes = null;
+            byte[] encryptedBytes = null;
+
+            try
+            {
+                // Select target CSP
+                cspParams = new CspParameters();
+                cspParams.ProviderType = 1; // PROV_RSA_FULL 
+                //cspParams.ProviderName; // CSP name
+                rsaProvider = new RSACryptoServiceProvider(cspParams);
+
+                // Read public key from file
+                publicKeyFile = File.OpenText(publicKeyFileName);
+                publicKeyText = publicKeyFile.ReadToEnd();
+
+                // Import public key
+                rsaProvider.FromXmlString(publicKeyText);
+
+                // Encrypt plain text
+                plainBytes = Encoding.UTF8.GetBytes(clearText);
+                encryptedBytes = rsaProvider.Encrypt(plainBytes, false);
+
+                Console.WriteLine(Encoding.UTF8.GetString(encryptedBytes));
+                string pathTemp = @"D:\Test.txt";
+                tempFile = File.CreateText(pathTemp);
+                tempFile.Write(Encoding.UTF8.GetString(encryptedBytes));
+            }
+            catch (Exception ex)
+            {
+                // Any errors? Show them
+                Console.WriteLine("Exception encrypting file! More info:");
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                // Do some clean up if needed
+                if (publicKeyFile != null)
+                {
+                    publicKeyFile.Close();
+                }
+                if (tempFile != null)
+                {
+                    tempFile.Close();
+                }
+                
+               
+            }
+
+        } // Encrypt
+
+
+       
+    }
+}
